@@ -1,19 +1,17 @@
 package main
 
 import (
+	"os"
 	"flag"
 	"fmt"
 	"log"
+        "gopkg.in/ini.v1"
 	"time"
-
-	"github.com/omeid/upower-notify/notify"
-	"github.com/omeid/upower-notify/upower"
+	"github.com/128keaton/upower-notify/notify"
+	"github.com/128keaton/upower-notify/upower"
 )
 
-func init() {
-	//See the notes in "github.com/omeid/upower-notify/upower"
-	//This setting is for HP Envy series late 2012.
-}
+func init() {}
 
 var (
 	tick               time.Duration
@@ -24,9 +22,31 @@ var (
 	report             bool
 
 	notificationExpiryMilliseconds int32
+	notifyStartMessage  string
+	notifyStartTitle    string
 )
 
 func main() {
+	dirname, err := os.UserHomeDir()
+	cfg, err := ini.Load(dirname + "/.config/upower-notify/config.ini")
+    	if err != nil {
+        	fmt.Printf("Fail to read file: %v", err)
+        	os.Exit(1)
+    	}
+
+	notifyStartTitle := cfg.Section("startup").Key("notification_title").Validate(func(in string) string {
+	    	if len(in) == 0 {
+        		return "All good!"
+    		}
+    		return in
+	})
+
+	notifyStartMessage := cfg.Section("startup").Key("notification_message").Validate(func(in string) {
+                if len(in) == 0 {
+                        return "upower-notify has started and is ready to serve!"
+                }
+                return in
+        })
 
 	flag.DurationVar(&tick, "tick", 10*time.Second, "Update rate")
 	flag.DurationVar(&warn, "warn", 20*time.Minute, "Time to start warning. (Warn)")
@@ -53,7 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = notifier.Low("Ol Correct.", "Everything seems okay, I will keep you posted.", notificationExpiryMilliseconds)
+	err = notifier.Low(notifyStartTitle, notifyStartMessage, notificationExpiryMilliseconds)
 	if err != nil {
 		log.Fatal(err)
 	}
